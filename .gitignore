@@ -1,0 +1,18 @@
+# Segredos — nunca vão pro git
+.env
+secrets/
+bridge/.wwebjs_auth/
+bridge/.wwebjs_cache/
+
+# Dados locais (histórico, estado)
+data/
+
+# Dependências
+.venv/
+bridge/node_modules/
+__pycache__/
+*.pyc
+*.log
+
+# Configuração pessoal (o modelo sem dados pessoais é config.example.json)
+config.json

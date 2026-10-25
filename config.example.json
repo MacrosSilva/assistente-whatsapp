@@ -1,0 +1,37 @@
+{
+  "modulos_ativos": { "noticias": true, "email": true, "agenda": true },
+  "silencio": { "inicio": "23:00", "fim": "07:00" },
+  "envio": { "intervalo_entre_mensagens_seg": 8, "max_mensagens_por_hora": 6 },
+  "noticias": {
+    "intervalo_min": 30,
+    "max_itens_por_mensagem": 6,
+    "palavras_urgentes": ["zero-day", "0-day", "dia zero", "vazamento", "ransomware", "falha crítica", "critical vulnerability", "actively exploited", "fora do ar", "outage"],
+    "palavras_incluir": [],
+    "palavras_excluir": ["oferta", "cupom", "promoção", "desconto", "black friday", "review de celular", "horóscopo", "deal", "sale"],
+    "fontes": [
+      { "nome": "Canaltech", "url": "https://canaltech.com.br/rss/", "tema": "geral" },
+      { "nome": "TecMundo", "url": "https://rss.tecmundo.com.br/feed", "tema": "geral" },
+      { "nome": "Olhar Digital", "url": "https://olhardigital.com.br/feed/", "tema": "geral" },
+      { "nome": "Tecnoblog", "url": "https://tecnoblog.net/feed/", "tema": "geral" },
+      { "nome": "The Verge", "url": "https://www.theverge.com/rss/index.xml", "tema": "geral" },
+      { "nome": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "tema": "geral" },
+      { "nome": "TechCrunch", "url": "https://techcrunch.com/feed/", "tema": "geral" },
+      { "nome": "Hacker News (150+ pts)", "url": "https://hnrss.org/frontpage?points=150", "tema": "programação" },
+      { "nome": "The Verge IA", "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", "tema": "IA" },
+      { "nome": "MIT Tech Review IA", "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed", "tema": "IA" },
+      { "nome": "OpenAI", "url": "https://openai.com/news/rss.xml", "tema": "IA" },
+      { "nome": "Google AI", "url": "https://blog.google/technology/ai/rss/", "tema": "IA" },
+      { "nome": "Hugging Face", "url": "https://huggingface.co/blog/feed.xml", "tema": "IA" },
+      { "nome": "GitHub Blog", "url": "https://github.blog/feed/", "tema": "programação" },
+      { "nome": "InfoQ", "url": "https://feed.infoq.com/", "tema": "programação" },
+      { "nome": "The Hacker News", "url": "https://feeds.feedburner.com/TheHackersNews", "tema": "segurança" },
+      { "nome": "BleepingComputer", "url": "https://www.bleepingcomputer.com/feed/", "tema": "segurança" },
+      { "nome": "Krebs on Security", "url": "https://krebsonsecurity.com/feed/", "tema": "segurança" },
+      { "nome": "SANS ISC", "url": "https://isc.sans.edu/rssfeed_full.xml", "tema": "segurança" },
+      { "nome": "Dark Reading", "url": "https://www.darkreading.com/rss.xml", "tema": "segurança" }
+    ]
+  },
+  "email": { "intervalo_min": 5, "so_nao_lidos": true, "remetentes": [], "palavras": [] },
+  "agenda": { "antecedencia_min": [60, 10] },
+  "resumo": { "motor": "ollama", "modelo": "", "url": "http://127.0.0.1:11434" }
+}

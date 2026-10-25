@@ -1,0 +1,15 @@
+#!/bin/sh
+# Trava: recusa o commit se algo com cara de segredo estiver no pacote.
+bad=0
+files=$(git diff --cached --name-only --diff-filter=ACM)
+for f in $files; do
+  case "$f" in
+    .env|*/.env|secrets/*|*credentials*.json|*token*.json|config.json|data/*|bridge/.wwebjs_*)
+      echo "BLOQUEADO: arquivo sensível no commit: $f"; bad=1 ;;
+  esac
+done
+# Conteúdo suspeito (chaves do Google, tokens preenchidos)
+if git diff --cached -U0 -- $files ":(exclude).githooks" | grep -E '^\+' | grep -nE '"(client_secret|refresh_token|private_key)"|GOCSPX-|ya29\.|BRIDGE_TOKEN=[A-Za-z0-9]' >/dev/null; then
+  echo "BLOQUEADO: conteúdo parecido com segredo nas linhas adicionadas."; bad=1
+fi
+[ $bad -eq 0 ] || { echo "Commit cancelado. Tire o arquivo com: git restore --staged <arquivo>"; exit 1; }

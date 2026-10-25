@@ -89,6 +89,14 @@ function criarCliente() {
 
   client.on('message', receber);
 
+  // Recibo das mensagens enviadas: -1 significa que o WhatsApp recusou a entrega
+  client.on('message_ack', (msg, ack) => {
+    if (msg.fromMe && ack === -1) {
+      estado.ultimoErro = 'o WhatsApp recusou a entrega de uma mensagem';
+      log('recibo: ERRO na entrega');
+    }
+  });
+
   client.initialize().catch((e) => {
     mudar('erro', { ultimoErro: e.message });
     reiniciar(false);

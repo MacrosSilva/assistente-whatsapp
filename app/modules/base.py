@@ -6,18 +6,18 @@ de Module. Ele aparece sozinho no painel e no comando "ajuda".
 
 
 class Module:
-    nome = ""          # id curto, usado em config e comandos (ex.: "noticias")
-    titulo = ""        # nome bonito para o painel
-    comandos = []      # palavras que o usuário pode mandar no WhatsApp
-    config_padrao = {} # configurações próprias, editáveis no painel
+    nome = ""        # id curto, usado no config.json (ex.: "noticias")
+    titulo = ""      # nome bonito para o painel
+    comandos = {}    # palavra que o usuário manda no WhatsApp -> o que ela faz
 
-    def __init__(self, config):
-        self.config = config  # dict com a seção deste módulo em config.json
+    def tick(self, agora, cfg, silencio, enviar):
+        """Chamado a cada minuto pelo núcleo, para o módulo agir sozinho (ex.: buscar novidades).
 
-    def resumo(self):
-        """Texto curto deste módulo para entrar no resumo agendado (ou "" se nada)."""
-        raise NotImplementedError
+        cfg: a seção deste módulo no config.json (lida na hora, então edições valem sem reiniciar).
+        silencio: True durante o horário de silêncio; o módulo decide o que guardar para depois.
+        enviar(texto) -> bool: manda ao WhatsApp e registra no histórico; True se a ponte aceitou.
+        """
 
-    def responder(self, comando):
-        """Resposta quando o usuário manda um dos `comandos`. Padrão: o resumo."""
-        return self.resumo()
+    def responder(self, comando, args, cfg):
+        """Resposta quando o usuário manda uma das palavras de `comandos`."""
+        return ""

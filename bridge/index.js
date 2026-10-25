@@ -191,7 +191,7 @@ async function processarFila() {
       } catch (e) {
         log(`aviso: "digitando" falhou (${e.stack?.split('\n').slice(0, 2).join(' | ')}); enviando assim mesmo`);
       }
-      await client.sendMessage(meuId, texto);
+      await client.sendMessage(meuId, texto, { linkPreview: false }); // sem prévia: mensagem compacta
       ultimoEnvio = Date.now();
       enviadasNaHora.push(ultimoEnvio);
       log(`mensagem enviada (${texto.length} caracteres)`);

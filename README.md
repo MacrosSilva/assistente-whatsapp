@@ -15,3 +15,13 @@ da Google Agenda. Tem um painel web local para configurar tudo.
 Segredos (`.env`, `secrets/`, sessão do WhatsApp) e dados pessoais (`config.json`, `data/`)
 nunca vão para o git. Um hook em `.githooks/pre-commit` bloqueia commits com arquivos sensíveis.
 Acesso ao Google é somente leitura.
+
+## Como usar (por enquanto)
+- **Iniciar:** dois cliques em `iniciar.cmd`. Abre a ponte e o núcleo minimizados e, depois, o painel
+  em http://127.0.0.1:8765.
+- **Parar:** dois cliques em `parar.cmd`. A sessão do WhatsApp continua salva (não pede QR de novo).
+- O PC precisa estar ligado e acordado. O início automático com o Windows vem numa próxima etapa.
+- Logs: `data/core.out` (núcleo) e `data/bridge.log` (ponte).
+
+Primeira instalação: `python -m venv .venv`, `.venv\Scripts\pip install -r requirements.txt`,
+`cd bridge && npm install`, copiar `.env.example` para `.env` e preencher.

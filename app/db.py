@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS noticias (
     enviada   TEXT,
     publicada TEXT,                      -- data de publicação na fonte (hora local)
     resumo    TEXT,                      -- trecho do texto, para o painel
-    imagem    TEXT                       -- miniatura (URL https), para o painel
+    imagem    TEXT,                      -- miniatura (URL https), para o painel
+    traducao  TEXT                       -- título em português, se a fonte é de outro idioma
 );
 CREATE INDEX IF NOT EXISTS ix_noticias_status ON noticias(status, coletada);
 CREATE INDEX IF NOT EXISTS ix_noticias_enviada ON noticias(enviada);
@@ -72,7 +73,7 @@ def iniciar():
         con.executescript(ESQUEMA)
         # Migração: colunas que chegaram depois da primeira versão do banco
         colunas = {r[1] for r in con.execute("PRAGMA table_info(noticias)")}
-        for coluna in ("publicada", "resumo", "imagem"):
+        for coluna in ("publicada", "resumo", "imagem", "traducao"):
             if coluna not in colunas:
                 con.execute(f"ALTER TABLE noticias ADD COLUMN {coluna} TEXT")
         con.execute("CREATE INDEX IF NOT EXISTS ix_noticias_publicada ON noticias(publicada)")

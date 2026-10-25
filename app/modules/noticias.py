@@ -17,6 +17,7 @@ import feedparser
 import httpx
 
 from .. import db
+from ..traducao import traduzir_varios
 from .base import Module
 
 log = logging.getLogger("noticias")
@@ -323,10 +324,27 @@ class Noticias(Module):
         return escolhidas
 
     @staticmethod
-    def _formatar(itens, cabecalho, restantes=0):
+    def _traduzir(itens):
+        """Traduz só o que vai sair agora (e guarda, para não traduzir de novo). O filtro e as
+        repetidas continuam olhando o título original, porque as palavras do nicho estão em inglês também."""
+        faltam = [n for n in itens if not n.get("traducao")]
+        if not faltam:
+            return
+        prontas = []
+        for n, (texto, origem) in zip(faltam, traduzir_varios([n["titulo"] for n in faltam])):
+            n["traducao"] = texto
+            if origem:  # se falhou, sai em inglês agora e tenta de novo numa próxima vez
+                prontas.append((texto, n["chave"]))
+        with db.conexao() as con:
+            con.executemany("UPDATE noticias SET traducao=? WHERE chave=?", prontas)
+
+    @classmethod
+    def _formatar(cls, itens, cabecalho, restantes=0):
+        cls._traduzir(itens)
         linhas = [cabecalho, ""]
         for n in itens:
-            titulo = n["titulo"] if len(n["titulo"]) <= 120 else n["titulo"][:117] + "…"
+            texto = n.get("traducao") or n["titulo"]
+            titulo = texto if len(texto) <= 120 else texto[:117] + "…"
             tema = n["tema"].capitalize() if n["tema"] != "IA" else "IA"
             linhas += [f"{EMOJI.get(n['tema'], '📰')} *{tema}* · {titulo} — _{n['fonte']}_", n["link"], ""]
         if restantes:

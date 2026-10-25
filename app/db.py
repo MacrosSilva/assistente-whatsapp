@@ -19,7 +19,10 @@ CREATE TABLE IF NOT EXISTS noticias (
     -- vista: já existia na 1ª leitura | pendente: aguardando envio
     -- enviada: foi para o WhatsApp | excedente: ficou para o "mais" | filtrada | repetida
     status    TEXT NOT NULL,
-    enviada   TEXT
+    enviada   TEXT,
+    publicada TEXT,                      -- data de publicação na fonte (hora local)
+    resumo    TEXT,                      -- trecho do texto, para o painel
+    imagem    TEXT                       -- miniatura (URL https), para o painel
 );
 CREATE INDEX IF NOT EXISTS ix_noticias_status ON noticias(status, coletada);
 CREATE INDEX IF NOT EXISTS ix_noticias_enviada ON noticias(enviada);
@@ -67,6 +70,12 @@ def iniciar():
     with conexao() as con:
         con.execute("PRAGMA journal_mode=WAL")
         con.executescript(ESQUEMA)
+        # Migração: colunas que chegaram depois da primeira versão do banco
+        colunas = {r[1] for r in con.execute("PRAGMA table_info(noticias)")}
+        for coluna in ("publicada", "resumo", "imagem"):
+            if coluna not in colunas:
+                con.execute(f"ALTER TABLE noticias ADD COLUMN {coluna} TEXT")
+        con.execute("CREATE INDEX IF NOT EXISTS ix_noticias_publicada ON noticias(publicada)")
 
 
 def evento(nivel, origem, mensagem):

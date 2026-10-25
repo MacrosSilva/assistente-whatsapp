@@ -3,64 +3,33 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
   <title>Assistente</title>
+  <link rel="icon" href="/web/icone.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/web/painel.css">
-  <script src="/web/painel.js" defer></script>
+  <script type="module" src="/web/js/app.js"></script>
 </head>
 <body>
-  <header class="topo">
-    <h1>Assistente</h1>
-    <span id="pill" class="pill">…</span>
-  </header>
-
-  <main>
-    <section class="card" id="status">
-      <div class="numeros">
-        <div><span class="rotulo">WhatsApp</span><strong id="st-whats">…</strong><small id="st-whats-desde"></small></div>
-        <div><span class="rotulo">Último envio automático</span><strong id="st-envio">…</strong><small id="st-envio-det"></small></div>
-        <div><span class="rotulo">Última leitura das fontes</span><strong id="st-leitura">…</strong></div>
+  <div class="app">
+    <aside class="lateral">
+      <a class="marca" href="#/">
+        <img src="/web/icone.svg" alt="" width="30" height="30">
+        <span>Assistente</span>
+      </a>
+      <nav class="menu" id="menu" aria-label="Seções do painel"></nav>
+      <div class="lateral-rodape">
+        <a class="whats-mini" href="#/whatsapp" id="whats-mini">
+          <span class="ponto"></span><span class="txt">WhatsApp…</span>
+        </a>
+        <button class="botao-icone" id="bt-tema" title="Alternar tema claro/escuro" aria-label="Alternar tema"></button>
       </div>
-      <div class="acoes">
-        <button id="bt-agora" class="primario">Enviar novidades agora</button>
-        <button id="bt-teste">Mensagem de teste</button>
-        <span id="aviso-acao" class="aviso" role="status"></span>
-      </div>
-    </section>
+    </aside>
 
-    <section class="card oculto" id="qr-card">
-      <h2>Reconectar o número reserva</h2>
-      <p>No celular do número reserva: WhatsApp → ⋮ → <b>Dispositivos conectados</b> → <b>Conectar dispositivo</b>.</p>
-      <div class="qr"><img id="qr-img" alt="QR code do WhatsApp"><p id="qr-msg">Gerando QR code…</p></div>
-    </section>
-
-    <section class="card">
-      <h2>Módulos</h2>
-      <ul id="modulos" class="lista-modulos"></ul>
-    </section>
-
-    <section class="card">
-      <div class="cab">
-        <h2>Configurações</h2>
-        <nav id="abas-config" class="abas"></nav>
-      </div>
-      <form id="form-config" autocomplete="off"></form>
-      <div class="rodape-form">
-        <span id="aviso-config" class="aviso" role="status"></span>
-        <button type="button" id="bt-descartar" disabled>Descartar</button>
-        <button type="button" id="bt-salvar" class="primario" disabled>Salvar</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="cab">
-        <h2>Histórico</h2>
-        <nav class="abas" id="abas-hist">
-          <button class="ativa" data-aba="envios">Envios</button>
-          <button data-aba="eventos">Erros e avisos</button>
-        </nav>
-      </div>
-      <ol id="historico" class="historico"></ol>
-    </section>
-  </main>
+    <main class="principal">
+      <div class="faixa oculto" id="faixa"></div>
+      <div id="conteudo" class="conteudo"></div>
+    </main>
+  </div>
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 </body>
 </html>

@@ -31,7 +31,7 @@ PADROES_TEMA = {
                  r"ciberataques?|spyware|brechas?|falhas? de seguranca|patch tuesday)\b",
     "IA": r"\b(ia|ai|llm\w*|gpt\S*|openai|anthropic|claude|gemini|chatgpt|chatbot\w*|deepseek|copilot|"
           r"inteligencia artificial|artificial intelligence|machine learning|agente\w* de ia|ai agents?|mistral|llama)\b",
-    "programação": r"\b(python|javascript|typescript|rust|golang|java|github|gitlab|programa\w*|developers?|"
+    "programação": r"\b(python|php|javascript|typescript|rust|golang|java|github|gitlab|programa\w*|developers?|"
                    r"desenvolvedor\w*|linux|open source|codigo aberto|framework|kubernetes|docker|npm|api|"
                    r"compilador|vs code|ide)\b",
 }
@@ -64,8 +64,10 @@ def _parecidos(a, b):
 
 
 def _contem(titulo, palavras):
+    """A palavra precisa começar no início de uma palavra do título: "vazamento" pega "vazamentos",
+    mas "quina" não pega "máquina" e "steam" não pega "mainstream"."""
     t = _sem_acento(titulo)
-    return any(_sem_acento(p) in t for p in palavras if p.strip())
+    return any(re.search(r"(?<!\w)" + re.escape(_sem_acento(p.strip())), t) for p in palavras if p.strip())
 
 
 def _tema(fonte, titulo):
@@ -78,6 +80,29 @@ def _tema(fonte, titulo):
     return "geral"
 
 
+def _publicada(e):
+    data = e.get("published_parsed") or e.get("updated_parsed")
+    return datetime.fromtimestamp(calendar.timegm(data)).isoformat(timespec="seconds") if data else None
+
+
+def _resumo(e):
+    bruto = e.get("summary") or (e.get("content") or [{}])[0].get("value", "")
+    texto = _limpar_titulo(bruto)
+    texto = re.sub(r"\s*(The post|O post) .{0,200} (appeared first on|apareceu primeiro em) .*$", "", texto)
+    return texto[:280] + ("…" if len(texto) > 280 else "") if texto else None
+
+
+def _imagem(e):
+    """Miniatura da notícia, de onde o feed oferecer (só https)."""
+    candidatos = [m.get("url") for m in e.get("media_thumbnail", [])]
+    candidatos += [m.get("url") for m in e.get("media_content", [])
+                   if m.get("medium") == "image" or str(m.get("type", "")).startswith("image")]
+    candidatos += [l.get("href") for l in e.get("links", []) if str(l.get("type", "")).startswith("image")]
+    html_bruto = e.get("summary", "") + "".join(c.get("value", "") for c in e.get("content", []))
+    candidatos += re.findall(r'<img[^>]+src="([^"]+)"', html_bruto)
+    return next((html.unescape(u) for u in candidatos if u and u.startswith("https://")), None)
+
+
 def _baixar(fonte):
     r = httpx.get(fonte["url"], headers={"User-Agent": UA}, timeout=20, follow_redirects=True)
     r.raise_for_status()
@@ -87,6 +112,7 @@ def _baixar(fonte):
 class Noticias(Module):
     nome = "noticias"
     titulo = "Notícias de tecnologia"
+    descricao = "Lê feeds RSS de tecnologia, IA, programação e segurança e avisa no WhatsApp o que for novo."
     comandos = {
         "noticias": "o que há de novo agora (sem esperar o próximo envio)",
         "mais": "as próximas notícias que não couberam na última mensagem",
@@ -105,45 +131,59 @@ class Noticias(Module):
         novas = 0
         with db.conexao() as con:
             recentes = [_palavras(r["titulo"]) for r in con.execute(
-                "SELECT titulo FROM noticias WHERE coletada >= ? AND status IN ('pendente','enviada','excedente')",
+                "SELECT titulo FROM noticias WHERE coletada >= ? AND status IN ('pendente','enviada','excedente','vista')",
                 ((datetime.now() - timedelta(hours=48)).isoformat(),))]
 
             for fonte, feed in zip(fontes, resultados):
                 if feed is None:
                     continue
-                primeira_vez = db.ler_estado(f"fonte_lida:{fonte['url']}") is None
-                for e in feed.entries[:40]:
+                lida_desde = db.ler_estado(f"fonte_lida:{fonte['url']}")
+                primeira_vez = lida_desde is None
+                for e in feed.entries[:60]:
                     titulo, link = _limpar_titulo(e.get("title")), e.get("link")
                     if not titulo or not link:
                         continue
                     chave = _normalizar_link(link)
-                    if con.execute("SELECT 1 FROM noticias WHERE chave=?", (chave,)).fetchone():
+                    publicada, resumo, imagem = _publicada(e), _resumo(e), _imagem(e)
+                    existente = con.execute("SELECT publicada FROM noticias WHERE chave=?", (chave,)).fetchone()
+                    if existente:
+                        if existente["publicada"] is None:  # notícias de antes da migração: completa os dados
+                            con.execute("UPDATE noticias SET publicada=?, resumo=?, imagem=? WHERE chave=?",
+                                        (publicada or db.agora(), resumo, imagem, chave))
                         continue
                     data = e.get("published_parsed") or e.get("updated_parsed")
-                    antiga = data is not None and calendar.timegm(data) < limite_idade
+                    # Antiga: mais de 48 h, ou publicada antes de começarmos a acompanhar esta fonte
+                    antiga = data is not None and (calendar.timegm(data) < limite_idade
+                                                   or (lida_desde and publicada < lida_desde))
                     palavras = _palavras(titulo)
 
-                    if primeira_vez or antiga:
-                        status = "vista"           # já existia: não envia (evita rajada na 1ª leitura)
-                    elif _contem(titulo, cfg.get("palavras_excluir", [])) or (
-                            cfg.get("palavras_incluir") and not _contem(titulo, cfg["palavras_incluir"])):
-                        status = "filtrada"
-                    elif any(_parecidos(palavras, r) for r in recentes):
-                        status = "repetida"        # mesma notícia vinda de outra fonte
-                    else:
-                        status = "pendente"
+                    status = self._classificar(titulo, palavras, recentes, cfg)
+                    if status == "pendente":
                         recentes.append(palavras)
-                        novas += 1
+                        if primeira_vez or antiga:
+                            status = "vista"       # já existia: só aparece no painel (evita rajada no WhatsApp)
+                        else:
+                            novas += 1
                     urgente = int(status == "pendente" and _contem(titulo, cfg.get("palavras_urgentes", [])))
                     con.execute(
-                        "INSERT INTO noticias (chave, titulo, link, fonte, tema, urgente, coletada, status) "
-                        "VALUES (?,?,?,?,?,?,?,?)",
-                        (chave, titulo, link.strip(), fonte["nome"], _tema(fonte, titulo), urgente, db.agora(), status))
+                        "INSERT INTO noticias (chave, titulo, link, fonte, tema, urgente, coletada, status, "
+                        "publicada, resumo, imagem) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                        (chave, titulo, link.strip(), fonte["nome"], _tema(fonte, titulo), urgente, db.agora(),
+                         status, publicada or db.agora(), resumo, imagem))
                 if primeira_vez:
                     con.execute("INSERT OR REPLACE INTO estado (chave, valor) VALUES (?,?)",
                                 (f"fonte_lida:{fonte['url']}", db.agora()))
         log.info("leitura concluída: %d fontes, %d novas", len(fontes), novas)
         return novas
+
+    @staticmethod
+    def _classificar(titulo, palavras, recentes, cfg):
+        if _contem(titulo, cfg.get("palavras_excluir", [])) or (
+                cfg.get("palavras_incluir") and not _contem(titulo, cfg["palavras_incluir"])):
+            return "filtrada"
+        if any(_parecidos(palavras, r) for r in recentes):
+            return "repetida"                      # mesma notícia vinda de outra fonte
+        return "pendente"
 
     def _baixar_seguro(self, fonte):
         try:
@@ -224,7 +264,22 @@ class Noticias(Module):
         db.gravar_estado("noticias_ultimo_envio", db.agora())
         return self._formatar(escolhidas, "📰 *Notícias agora*", len(resto))
 
+    def texto_de_uma(self, chave):
+        """Para o botão "enviar ao WhatsApp" de uma notícia no painel."""
+        itens = self._buscar_chave(chave)
+        if not itens:
+            return None
+        self._marcar(itens, "enviada")
+        return self._formatar(itens, "📌 *Do painel*")
+
+    def fontes_com_erro(self):
+        return dict(self._erros_fonte)
+
     # ---------- auxiliares ----------
+    def _buscar_chave(self, chave):
+        with db.conexao() as con:
+            return [dict(r) for r in con.execute("SELECT * FROM noticias WHERE chave=?", (chave,))]
+
     def _buscar(self, onde, limite):
         with db.conexao() as con:
             return [dict(r) for r in con.execute(

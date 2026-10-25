@@ -86,8 +86,9 @@ class Nucleo:
         return enviados
 
     def lista_modulos(self, cfg):
-        return [{"nome": m.nome, "titulo": m.titulo, "ativo": cfg["modulos_ativos"].get(m.nome, False),
-                 "comandos": m.comandos} for m in self.modulos.values()]
+        return [{"nome": m.nome, "titulo": m.titulo, "descricao": m.descricao,
+                 "ativo": cfg["modulos_ativos"].get(m.nome, False), "comandos": m.comandos}
+                for m in self.modulos.values()]
 
     # ---------- conversa ----------
     def responder(self, texto):

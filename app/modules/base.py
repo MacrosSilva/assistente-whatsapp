@@ -8,6 +8,7 @@ de Module. Ele aparece sozinho no painel e no comando "ajuda".
 class Module:
     nome = ""        # id curto, usado no config.json (ex.: "noticias")
     titulo = ""      # nome bonito para o painel
+    descricao = ""   # uma frase sobre o que o módulo faz (aparece no painel)
     comandos = {}    # palavra que o usuário manda no WhatsApp -> o que ela faz
 
     def tick(self, agora, cfg, silencio, enviar):

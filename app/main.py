@@ -7,7 +7,7 @@ import hmac
 import logging
 import re
 from contextlib import asynccontextmanager
-from datetime import time
+from datetime import datetime, time, timedelta
 
 from fastapi import Body, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import bridge, db
-from .core import Nucleo
+from .core import Nucleo, em_silencio
 from .settings import BRIDGE_TOKEN, CORE_PORT, DATA, RAIZ, carregar_config, salvar_config
 
 logging.basicConfig(
@@ -61,7 +61,9 @@ async def protecao_local(request: Request, chamar):
     resposta = await chamar(request)
     resposta.headers["X-Frame-Options"] = "DENY"
     resposta.headers["Content-Security-Policy"] = (
-        "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'")
+        # img-src https: permite as miniaturas das notícias (carregadas sem enviar de onde vieram)
+        "default-src 'self'; img-src 'self' data: https:; style-src 'self'; script-src 'self'; frame-ancestors 'none'")
+    resposta.headers["Referrer-Policy"] = "no-referrer"
     resposta.headers["Cache-Control"] = "no-store"
     return resposta
 
@@ -104,6 +106,8 @@ def status():
         "ultimo_envio": dict(ultimo) if ultimo else None,
         "ultima_leitura": db.ler_estado("noticias_ultima_leitura"),
         "modulos": nucleo.lista_modulos(cfg),
+        "silencio": {**cfg["silencio"], "agora": em_silencio(cfg, datetime.now())},
+        "limite_hora": cfg["envio"]["max_mensagens_por_hora"],
     }
 
 
@@ -192,6 +196,94 @@ def _validar(novo, modelo, caminho=""):
         if chave in novo and novo[chave] < 1:
             return f"{caminho}{chave}: precisa ser pelo menos 1"
     return None
+
+
+TEMAS = ["IA", "segurança", "programação", "geral"]
+OCULTAS = "('repetida')"  # a mesma notícia de outra fonte não aparece duas vezes
+
+
+@app.get("/api/noticias")
+def listar_noticias(dias: int = 7, tema: str = "", fonte: str = "", q: str = "", status: str = "",
+                    limite: int = 30, pagina: int = 0):
+    """Notícias coletadas (enviadas ou não), para a tela de Notícias."""
+    desde = (datetime.now() - timedelta(days=max(1, min(dias, 30)))).isoformat()
+    onde, args = [f"publicada >= ?", f"status NOT IN {OCULTAS}"], [desde]
+    if status == "enviada":
+        onde.append("status = 'enviada'")
+    elif status == "filtrada":
+        onde.append("status = 'filtrada'")
+    else:
+        onde.append("status != 'filtrada'")
+    base_onde, base_args = list(onde), list(args)  # contagens por tema/fonte ignoram o próprio filtro
+    if tema:
+        onde.append("tema = ?"); args.append(tema)
+    if fonte:
+        onde.append("fonte = ?"); args.append(fonte)
+    if q.strip():
+        onde.append("(titulo LIKE ? OR resumo LIKE ?)"); args += [f"%{q.strip()}%"] * 2
+    sql_onde = " AND ".join(onde)
+    with db.conexao() as con:
+        total = con.execute(f"SELECT COUNT(*) FROM noticias WHERE {sql_onde}", args).fetchone()[0]
+        itens = [dict(r) for r in con.execute(
+            f"SELECT chave, titulo, link, fonte, tema, urgente, status, enviada, publicada, resumo, imagem "
+            f"FROM noticias WHERE {sql_onde} ORDER BY publicada DESC LIMIT ? OFFSET ?",
+            args + [max(1, min(limite, 100)), max(0, pagina) * limite])]
+        por_tema = dict(con.execute(
+            f"SELECT tema, COUNT(*) FROM noticias WHERE {' AND '.join(base_onde)} GROUP BY tema", base_args).fetchall())
+        por_fonte = dict(con.execute(
+            f"SELECT fonte, COUNT(*) FROM noticias WHERE {' AND '.join(base_onde)} GROUP BY fonte ORDER BY 2 DESC",
+            base_args).fetchall())
+    return {"total": total, "itens": itens, "por_tema": por_tema, "por_fonte": por_fonte}
+
+
+class Chave(BaseModel):
+    chave: str
+
+
+@app.post("/api/noticias/enviar")
+def enviar_noticia(corpo: Chave):
+    texto = nucleo.modulos["noticias"].texto_de_uma(corpo.chave)
+    if not texto:
+        raise HTTPException(404, "notícia não encontrada")
+    return {"ok": bridge.enviar(texto, "painel")}
+
+
+@app.get("/api/estatisticas")
+def estatisticas():
+    cfg = carregar_config()
+    hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    dias = [(hoje - timedelta(days=i)) for i in range(6, -1, -1)]
+    with db.conexao() as con:
+        linhas = con.execute(
+            f"SELECT substr(publicada, 1, 10) AS dia, tema, COUNT(*) AS n FROM noticias "
+            f"WHERE publicada >= ? AND status NOT IN {OCULTAS} AND status != 'filtrada' GROUP BY dia, tema",
+            (dias[0].isoformat(),)).fetchall()
+        enviadas_hoje = con.execute("SELECT COUNT(*) FROM noticias WHERE enviada >= ?", (hoje.isoformat(),)).fetchone()[0]
+        msgs_hoje = con.execute("SELECT COUNT(*) FROM envios WHERE ok=1 AND quando >= ?", (hoje.isoformat(),)).fetchone()[0]
+        filtradas = con.execute("SELECT COUNT(*) FROM noticias WHERE status IN ('filtrada','repetida') AND coletada >= ?",
+                                (dias[0].isoformat(),)).fetchone()[0]
+        erros_24h = con.execute("SELECT COUNT(*) FROM eventos WHERE nivel='erro' AND quando >= ?",
+                                ((datetime.now() - timedelta(hours=24)).isoformat(),)).fetchone()[0]
+    por_dia = {d.date().isoformat(): {t: 0 for t in TEMAS} for d in dias}
+    for r in linhas:
+        if r["dia"] in por_dia:
+            por_dia[r["dia"]][r["tema"] if r["tema"] in TEMAS else "geral"] += r["n"]
+    ncfg = cfg.get("noticias", {})
+    ultima = db.ler_estado("noticias_ultima_leitura")
+    proxima = (datetime.fromisoformat(ultima) + timedelta(minutes=ncfg.get("leitura_min", 10))).isoformat() if ultima else None
+    fontes = ncfg.get("fontes", [])
+    return {
+        "por_dia": por_dia,
+        "semana": sum(sum(v.values()) for v in por_dia.values()),
+        "enviadas_hoje": enviadas_hoje,
+        "mensagens_hoje": msgs_hoje,
+        "descartadas_semana": filtradas,
+        "erros_24h": erros_24h,
+        "proxima_leitura": proxima,
+        "fontes_ativas": sum(1 for f in fontes if f.get("ativa", True)),
+        "fontes_total": len(fontes),
+        "fontes_com_erro": nucleo.modulos["noticias"].fontes_com_erro() if "noticias" in nucleo.modulos else {},
+    }
 
 
 @app.get("/api/historico")

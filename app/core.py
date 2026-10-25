@@ -5,7 +5,7 @@ O painel e o WhatsApp chamam as mesmas funções daqui, então a lógica é uma 
 import logging
 import threading
 import unicodedata
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from . import bridge, db
 from .modules import descobrir
@@ -56,10 +56,38 @@ class Nucleo:
         for m in self.ativos(cfg):
             try:
                 with self._trava:
-                    m.tick(agora, cfg.get(m.nome, {}), silencio, lambda texto, o=m.nome: bridge.enviar(texto, o))
+                    m.tick(agora, cfg.get(m.nome, {}), silencio, lambda texto, o=m.nome: self.enviar_auto(texto, o, cfg))
             except Exception as e:
                 log.exception("erro no módulo %s", m.nome)
                 db.evento("erro", m.nome, f"{type(e).__name__}: {e}")
+
+    def enviar_auto(self, texto, origem, cfg):
+        """Envio que o bot decide sozinho: respeita o limite por hora (respostas a comandos não contam)."""
+        limite = cfg["envio"]["max_mensagens_por_hora"]
+        with db.conexao() as con:
+            na_hora = con.execute(
+                "SELECT COUNT(*) FROM envios WHERE ok=1 AND origem NOT IN ('comando','painel') "
+                "AND quando >= ?", ((datetime.now() - timedelta(hours=1)).isoformat(),)).fetchone()[0]
+        if na_hora >= limite:
+            db.evento("aviso", origem, f"limite de {limite} mensagens/hora atingido; fica para depois")
+            return False
+        return bridge.enviar(texto, origem)
+
+    # ---------- ações do painel ----------
+    def enviar_agora(self):
+        """Botão "enviar novidades agora": cada módulo ligado manda o que tiver."""
+        cfg = carregar_config()
+        enviados = []
+        for m in self.ativos(cfg):
+            with self._trava:
+                texto = m.agora(cfg.get(m.nome, {}))
+            if texto and bridge.enviar(texto, "painel"):
+                enviados.append(m.titulo)
+        return enviados
+
+    def lista_modulos(self, cfg):
+        return [{"nome": m.nome, "titulo": m.titulo, "ativo": cfg["modulos_ativos"].get(m.nome, False),
+                 "comandos": m.comandos} for m in self.modulos.values()]
 
     # ---------- conversa ----------
     def responder(self, texto):

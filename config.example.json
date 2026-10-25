@@ -9,7 +9,6 @@
     "fim": "07:00"
   },
   "envio": {
-    "intervalo_entre_mensagens_seg": 8,
     "max_mensagens_por_hora": 6
   },
   "noticias": {
@@ -42,101 +41,121 @@
     ],
     "fontes": [
       {
+        "ativa": true,
         "nome": "Canaltech",
         "url": "https://canaltech.com.br/rss/",
         "tema": "geral"
       },
       {
+        "ativa": true,
         "nome": "TecMundo",
         "url": "https://rss.tecmundo.com.br/feed",
         "tema": "geral"
       },
       {
+        "ativa": true,
         "nome": "Olhar Digital",
         "url": "https://olhardigital.com.br/feed/",
         "tema": "geral"
       },
       {
+        "ativa": true,
         "nome": "Tecnoblog",
         "url": "https://tecnoblog.net/feed/",
         "tema": "geral"
       },
       {
+        "ativa": true,
         "nome": "The Verge",
         "url": "https://www.theverge.com/rss/index.xml",
         "tema": "geral"
       },
       {
+        "ativa": true,
         "nome": "Ars Technica",
         "url": "https://feeds.arstechnica.com/arstechnica/index",
         "tema": "geral"
       },
       {
+        "ativa": true,
         "nome": "TechCrunch",
         "url": "https://techcrunch.com/feed/",
         "tema": "geral"
       },
       {
+        "ativa": true,
         "nome": "Hacker News (150+ pts)",
         "url": "https://hnrss.org/frontpage?points=150",
         "tema": "programação"
       },
       {
+        "ativa": true,
         "nome": "The Verge IA",
         "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
         "tema": "IA"
       },
       {
+        "ativa": true,
         "nome": "MIT Tech Review IA",
         "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed",
         "tema": "IA"
       },
       {
+        "ativa": true,
         "nome": "OpenAI",
         "url": "https://openai.com/news/rss.xml",
         "tema": "IA"
       },
       {
+        "ativa": true,
         "nome": "Google AI",
         "url": "https://blog.google/technology/ai/rss/",
         "tema": "IA"
       },
       {
+        "ativa": true,
         "nome": "Hugging Face",
         "url": "https://huggingface.co/blog/feed.xml",
         "tema": "IA"
       },
       {
+        "ativa": true,
         "nome": "GitHub Blog",
         "url": "https://github.blog/feed/",
         "tema": "programação"
       },
       {
+        "ativa": true,
         "nome": "InfoQ",
         "url": "https://feed.infoq.com/",
         "tema": "programação"
       },
       {
+        "ativa": true,
         "nome": "The Hacker News",
         "url": "https://feeds.feedburner.com/TheHackersNews",
         "tema": "segurança"
       },
       {
+        "ativa": true,
         "nome": "BleepingComputer",
         "url": "https://www.bleepingcomputer.com/feed/",
         "tema": "segurança"
       },
       {
+        "ativa": true,
         "nome": "Krebs on Security",
         "url": "https://krebsonsecurity.com/feed/",
         "tema": "segurança"
       },
       {
+        "ativa": true,
         "nome": "SANS ISC",
         "url": "https://isc.sans.edu/rssfeed_full.xml",
         "tema": "segurança"
       },
       {
+        "ativa": true,
         "nome": "Dark Reading",
         "url": "https://www.darkreading.com/rss.xml",
         "tema": "segurança"

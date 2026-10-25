@@ -205,13 +205,19 @@ class Noticias(Module):
             return self._formatar(lote, "📰 *Mais notícias*", len(itens) - len(lote))
 
         # "noticias": lê as fontes agora e manda o que houver de novo
+        texto = self.agora(cfg)
+        if texto:
+            return texto
+        ultimo = db.ler_estado("noticias_ultimo_envio")
+        quando = f" desde as {datetime.fromisoformat(ultimo):%H:%M}" if ultimo else ""
+        return f"Nada novo{quando}. Mande *mais* se quiser as que ficaram guardadas."
+
+    def agora(self, cfg):
         self.coletar(cfg)
         pendentes = self._buscar("status='pendente'", 500)
         if not pendentes:
-            ultimo = db.ler_estado("noticias_ultimo_envio")
-            quando = f" desde as {datetime.fromisoformat(ultimo):%H:%M}" if ultimo else ""
-            return f"Nada novo{quando}. Mande *mais* se quiser as que ficaram guardadas."
-        escolhidas = self._variadas(pendentes, maximo)
+            return None
+        escolhidas = self._variadas(pendentes, cfg["max_itens_por_mensagem"])
         resto = [n for n in pendentes if n not in escolhidas]
         self._marcar(escolhidas, "enviada")
         self._marcar(resto, "excedente")

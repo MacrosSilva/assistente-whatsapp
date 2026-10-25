@@ -18,6 +18,10 @@ class Module:
         enviar(texto) -> bool: manda ao WhatsApp e registra no histórico; True se a ponte aceitou.
         """
 
+    def agora(self, cfg):
+        """Botão "enviar agora" do painel: o que este módulo tem para mandar neste momento (ou None)."""
+        return None
+
     def responder(self, comando, args, cfg):
         """Resposta quando o usuário manda uma das palavras de `comandos`."""
         return ""

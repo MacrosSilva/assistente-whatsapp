@@ -26,12 +26,14 @@ EMOJI = {"IA": "🤖", "segurança": "🔐", "programação": "💻", "geral": "
 
 # Classificação das fontes "geral" pelo título (sem acento, minúsculo)
 PADROES_TEMA = {
-    "segurança": r"\b(hackers?|hackead\w+|ataques?|vulnerab\w*|malwares?|ransomware|vazamentos?|vazad\w+|phishing|"
+    "segurança": r"\b(hackers?|hackead\w+|ataques?|vulnerab\w*|malwares?|ransomware|vazamentos? de (dados|senhas|informacoes)|dados vazados|"
+                 r"senhas vazadas|data (breach|leak)|phishing|"
                  r"cve-\d+|golpes?|breach\w*|exploit\w*|seguranca|security|zero-day|0-day|backdoors?|botnets?|"
                  r"ciberataques?|spyware|brechas?|falhas? de seguranca|patch tuesday)\b",
     "IA": r"\b(ia|ai|llm\w*|gpt\S*|openai|anthropic|claude|gemini|chatgpt|chatbot\w*|deepseek|copilot|"
-          r"inteligencia artificial|artificial intelligence|machine learning|agente\w* de ia|ai agents?|mistral|llama)\b",
-    "programação": r"\b(python|php|javascript|typescript|rust|golang|java|github|gitlab|programa\w*|developers?|"
+          r"inteligencia artificial|artificial intelligence|machine learning|voice models?|ai models?|"
+          r"modelos? de (ia|linguagem|voz)|agente\w* de ia|ai agents?|mistral|llama)\b",
+    "programação": r"\b(python|php|javascript|typescript|rust|golang|java|github|gitlab|programac\w*|programador\w*|programar|developers?|"
                    r"desenvolvedor\w*|linux|open source|codigo aberto|framework|kubernetes|docker|npm|api|"
                    r"compilador|vs code|ide)\b",
 }
@@ -103,6 +105,21 @@ def _imagem(e):
     return next((html.unescape(u) for u in candidatos if u and u.startswith("https://")), None)
 
 
+def fora_do_nicho(titulo, tema, cfg):
+    """True se a notícia não deve ir para você.
+
+    Fontes especializadas (tema IA/segurança/programação) já são do nicho. Já as fontes gerais
+    publicam de tudo (jogos, trânsito, eletrodomésticos...), então delas só passa o que tiver
+    um termo de tecnologia no título (lista "palavras_nicho", editável no painel).
+    """
+    if _contem(titulo, cfg.get("palavras_excluir", [])):
+        return True
+    if cfg.get("palavras_incluir") and not _contem(titulo, cfg["palavras_incluir"]):
+        return True
+    return (tema == "geral" and cfg.get("fontes_gerais_so_nicho", True)
+            and not _contem(titulo, cfg.get("palavras_nicho", [])))
+
+
 def _baixar(fonte):
     r = httpx.get(fonte["url"], headers={"User-Agent": UA}, timeout=20, follow_redirects=True)
     r.raise_for_status()
@@ -156,8 +173,9 @@ class Noticias(Module):
                     antiga = data is not None and (calendar.timegm(data) < limite_idade
                                                    or (lida_desde and publicada < lida_desde))
                     palavras = _palavras(titulo)
+                    tema = _tema(fonte, titulo)
 
-                    status = self._classificar(titulo, palavras, recentes, cfg)
+                    status = self._classificar(titulo, tema, palavras, recentes, cfg)
                     if status == "pendente":
                         recentes.append(palavras)
                         if primeira_vez or antiga:
@@ -168,7 +186,7 @@ class Noticias(Module):
                     con.execute(
                         "INSERT INTO noticias (chave, titulo, link, fonte, tema, urgente, coletada, status, "
                         "publicada, resumo, imagem) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                        (chave, titulo, link.strip(), fonte["nome"], _tema(fonte, titulo), urgente, db.agora(),
+                        (chave, titulo, link.strip(), fonte["nome"], tema, urgente, db.agora(),
                          status, publicada or db.agora(), resumo, imagem))
                 if primeira_vez:
                     con.execute("INSERT OR REPLACE INTO estado (chave, valor) VALUES (?,?)",
@@ -177,9 +195,8 @@ class Noticias(Module):
         return novas
 
     @staticmethod
-    def _classificar(titulo, palavras, recentes, cfg):
-        if _contem(titulo, cfg.get("palavras_excluir", [])) or (
-                cfg.get("palavras_incluir") and not _contem(titulo, cfg["palavras_incluir"])):
+    def _classificar(titulo, tema, palavras, recentes, cfg):
+        if fora_do_nicho(titulo, tema, cfg):
             return "filtrada"
         if any(_parecidos(palavras, r) for r in recentes):
             return "repetida"                      # mesma notícia vinda de outra fonte

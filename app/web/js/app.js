@@ -437,6 +437,7 @@ const ROTULOS = {
   leitura_min: 'Ler as fontes a cada', intervalo_min: 'Enviar no máximo a cada',
   max_itens_por_mensagem: 'Notícias por mensagem', palavras_urgentes: 'Palavras urgentes',
   palavras_incluir: 'Só enviar se contiver', palavras_excluir: 'Nunca enviar se contiver', fontes: 'Fontes RSS',
+  fontes_gerais_so_nicho: 'Fontes gerais: só assuntos do nicho', palavras_nicho: 'Termos do nicho',
   so_nao_lidos: 'Só e-mails não lidos', remetentes: 'Remetentes importantes', palavras: 'Palavras importantes',
   antecedencia_min: 'Avisar antes do compromisso', ativa: 'Ativa', nome: 'Nome', url: 'Endereço do feed', tema: 'Tema',
 };
@@ -449,6 +450,8 @@ const DICAS = {
   palavras_urgentes: 'Uma por linha. Notícias com estas palavras saem na hora, sem esperar o intervalo.',
   palavras_incluir: 'Uma por linha. Deixe vazio para aceitar todos os assuntos.',
   palavras_excluir: 'Uma por linha. Não diferencia maiúsculas nem acentos.',
+  fontes_gerais_so_nicho: 'Portais gerais (Canaltech, TecMundo...) publicam de tudo: deles só passa notícia com um termo do nicho no título.',
+  palavras_nicho: 'Uma por linha. Usados só nas fontes de tema "Tecnologia"; as especializadas (IA, segurança, programação) passam direto.',
   remetentes: 'Um por linha (e-mail ou parte dele, ex.: @banco.com.br).',
   antecedencia_min: 'Em minutos, separados por vírgula. Ex.: 60, 10',
 };

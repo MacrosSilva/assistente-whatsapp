@@ -20,7 +20,10 @@ Acesso ao Google é somente leitura.
 - **Iniciar:** dois cliques em `iniciar.cmd`. Abre a ponte e o núcleo minimizados e, depois, o painel
   em http://127.0.0.1:8765.
 - **Parar:** dois cliques em `parar.cmd`. A sessão do WhatsApp continua salva (não pede QR de novo).
-- O PC precisa estar ligado e acordado. O início automático com o Windows vem numa próxima etapa.
+- **Início automático:** a tarefa agendada "Assistente WhatsApp" roda `iniciar.cmd auto` 30 s depois de
+  entrar no Windows (sem abrir o painel). Desligar: `schtasks /change /tn "Assistente WhatsApp" /disable`;
+  remover: `schtasks /delete /tn "Assistente WhatsApp" /f`.
+- O PC precisa estar ligado, com o usuário logado e acordado.
 - Logs: `data/core.out` (núcleo) e `data/bridge.log` (ponte).
 
 Primeira instalação: `python -m venv .venv`, `.venv\Scripts\pip install -r requirements.txt`,

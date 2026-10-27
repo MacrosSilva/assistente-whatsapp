@@ -14,8 +14,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import bridge, db
+from . import bridge, db, google
 from .core import Nucleo, em_silencio
+from .modules.resumo import ollama_modelo
 from .settings import BRIDGE_TOKEN, CORE_PORT, DATA, RAIZ, carregar_config, salvar_config
 
 logging.basicConfig(
@@ -129,6 +130,34 @@ def mensagem_teste():
 @app.post("/api/acoes/agora")
 def enviar_agora():
     return {"enviados": nucleo.enviar_agora()}
+
+
+@app.get("/api/google")
+def google_status():
+    """Se a conta Google está conectada (nunca devolve o token)."""
+    return google.status()
+
+
+@app.post("/api/google/conectar")
+def google_conectar():
+    try:
+        google.conectar()
+    except FileNotFoundError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True}
+
+
+@app.post("/api/google/desconectar")
+def google_desconectar():
+    google.desconectar()
+    return {"ok": True}
+
+
+@app.get("/api/ollama")
+def ollama_status():
+    cfg = carregar_config().get("resumo", {})
+    modelo = ollama_modelo(cfg) if cfg.get("url") else None
+    return {"ok": modelo is not None, "modelo": modelo, "pedido": cfg.get("modelo")}
 
 
 @app.post("/api/modulos/{nome}")

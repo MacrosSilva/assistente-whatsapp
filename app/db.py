@@ -28,6 +28,18 @@ CREATE TABLE IF NOT EXISTS noticias (
 CREATE INDEX IF NOT EXISTS ix_noticias_status ON noticias(status, coletada);
 CREATE INDEX IF NOT EXISTS ix_noticias_enviada ON noticias(enviada);
 
+CREATE TABLE IF NOT EXISTS emails (
+    id        TEXT PRIMARY KEY,          -- id da mensagem no Gmail
+    de        TEXT NOT NULL,
+    assunto   TEXT NOT NULL,
+    trecho    TEXT,
+    recebido  TEXT NOT NULL,
+    -- vista: já estava lá ao conectar | pendente: aguardando envio | enviado | ignorado: fora das regras
+    status    TEXT NOT NULL,
+    enviado   TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_emails_status ON emails(status, recebido);
+
 CREATE TABLE IF NOT EXISTS envios (
     id      INTEGER PRIMARY KEY,
     quando  TEXT NOT NULL,

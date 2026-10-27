@@ -25,11 +25,7 @@ const ESTADOS_WHATS = {
 };
 const infoWhats = (st) => ESTADOS_WHATS[st] || [st || 'Desconhecido', 'alerta', ''];
 
-const MODULOS_FUTUROS = {
-  email: { titulo: 'E-mail (Gmail)', icone: 'email', descricao: 'Avisa na hora sobre e-mails importantes, com regras de remetentes e palavras. Somente leitura.', etapa: 'Etapa 4' },
-  agenda: { titulo: 'Google Agenda', icone: 'calendario', descricao: 'Lembretes antes dos compromissos e a agenda do dia quando você pedir. Somente leitura.', etapa: 'Etapa 4' },
-};
-const ICONE_MODULO = { noticias: 'rss', email: 'email', agenda: 'calendario' };
+const ICONE_MODULO = { noticias: 'rss', email: 'email', agenda: 'calendario', resumo: 'chip' };
 
 const estado = {
   status: null,          // último /api/status
@@ -393,9 +389,7 @@ async function telaWhatsapp(raiz) {
 
 // ================= Módulos =================
 async function telaModulos(raiz) {
-  const [st, cfg] = await Promise.all([api('GET', '/api/status'), api('GET', '/api/config')]);
-  const existentes = new Set(st.modulos.map((m) => m.nome));
-  const futuros = Object.keys(cfg.modulos_ativos).filter((n) => !existentes.has(n) && MODULOS_FUTUROS[n]);
+  const [st, google, ollama] = await Promise.all([api('GET', '/api/status'), api('GET', '/api/google'), api('GET', '/api/ollama')]);
 
   const cartao = (m) => el('article', { class: 'card modulo' },
     el('div', { class: 'topo' },
@@ -414,20 +408,53 @@ async function telaModulos(raiz) {
     el('p', {}, m.descricao || ''),
     el('div', { class: 'cmds' }, Object.keys(m.comandos).map((c) => el('span', { class: 'cmd' }, c))));
 
-  const futuro = (nome) => {
-    const f = MODULOS_FUTUROS[nome];
-    return el('article', { class: 'card modulo futuro' },
-      el('div', { class: 'topo' }, el('div', { class: 'icone-mod' }, icone(f.icone, 'g')),
-        el('div', {}, el('h3', {}, f.titulo)), el('span', { class: 'tag neutra' }, f.etapa)),
-      el('p', {}, f.descricao));
-  };
-
   raiz.replaceChildren(
     cabecalho('Módulos', 'Cada fonte de informação é um módulo independente. Novos módulos aparecem aqui sozinhos.'),
-    el('div', { class: 'grade-modulos' }, st.modulos.map(cartao), futuros.map(futuro)),
+    el('div', { class: 'grade-modulos' }, st.modulos.map(cartao)),
+    el('div', { class: 'grade g-2' }, cartaoGoogle(google, () => telaModulos(raiz)), cartaoOllama(ollama)),
     el('div', { class: 'grade' }, card('Como adicionar um módulo', null, null,
       el('p', {}, 'Crie um arquivo em ', el('code', {}, 'app/modules/'), ' com uma classe que herda de ', el('code', {}, 'Module'),
         '. Ele aparece aqui, ganha uma aba em Configurações e seus comandos entram no ', el('code', {}, 'ajuda'), ' automaticamente.'))));
+}
+
+function cartaoGoogle(g, recarregar) {
+  const acao = (caminho, msg) => (e) => comCarregando(e.currentTarget, async () => {
+    try { await api('POST', caminho); if (msg) toast(msg); recarregar(); } catch (err) { toast(err.message, 'erro'); }
+  });
+  let corpo;
+  if (g.conectado) {
+    corpo = [
+      el('p', {}, el('span', { class: 'tag ok' }, 'Conectada'), ' ', g.conta || ''),
+      el('p', {}, 'O assistente lê seus e-mails e sua agenda, sem poder apagar, enviar ou alterar nada.'),
+      el('button', { class: 'botao fantasma perigo', onclick: acao('/api/google/desconectar', 'Conta Google desconectada.') }, 'Desconectar'),
+    ];
+  } else if (g.conectando) {
+    corpo = [el('p', {}, 'Uma aba do navegador abriu: escolha sua conta e toque em ', el('b', {}, 'Permitir'), '. Esta tela atualiza sozinha.')];
+    setTimeout(recarregar, 2500);
+  } else if (g.cliente) {
+    corpo = [
+      el('p', {}, 'Falta só autorizar. O navegador vai abrir a tela do Google; o acesso é ', el('b', {}, 'somente leitura'), '.'),
+      el('button', { class: 'botao primario', onclick: acao('/api/google/conectar') }, icone('abrir'), 'Conectar conta Google'),
+    ];
+  } else {
+    corpo = [
+      el('ol', { class: 'passos' },
+        el('li', {}, el('div', {}, 'Em ', el('b', {}, 'console.cloud.google.com'), ', crie um projeto e ative as APIs ', el('b', {}, 'Gmail'), ' e ', el('b', {}, 'Google Calendar'), '.')),
+        el('li', {}, el('div', {}, 'Em ', el('b', {}, 'Google Auth Platform'), ', configure como ', el('b', {}, 'Externo'), ' e adicione seu e-mail em ', el('b', {}, 'Público-alvo → Usuários de teste'), '.')),
+        el('li', {}, el('div', {}, 'Em ', el('b', {}, 'Clientes'), ', crie um cliente do tipo ', el('b', {}, 'App para computador'), ' e baixe o JSON.')),
+        el('li', {}, el('div', {}, 'Salve o arquivo como ', el('code', {}, 'secrets/google_cliente.json'), ' na pasta do assistente.'))),
+      el('button', { class: 'botao', onclick: () => recarregar() }, icone('atualizar'), 'Já salvei, verificar'),
+    ];
+  }
+  return card('Conta Google', 'Usada pelos módulos de E-mail e Agenda', null, ...corpo);
+}
+
+function cartaoOllama(o) {
+  return card('IA local (Ollama)', 'Usada pelo comando "resumo"', null,
+    o.ok
+      ? el('p', {}, el('span', { class: 'tag ok' }, 'Pronta'), ' modelo ', el('code', {}, o.modelo), '. Roda na sua placa de vídeo; nada sai do PC.')
+      : el('p', {}, el('span', { class: 'tag alerta' }, 'Indisponível'),
+        ` O Ollama não respondeu${o.pedido ? ` ou falta o modelo ${o.pedido}` : ''}. O resumo sai em versão simples, sem IA, até ele voltar.`));
 }
 
 // ================= Configurações =================
@@ -439,7 +466,8 @@ const ROTULOS = {
   palavras_incluir: 'Só enviar se contiver', palavras_excluir: 'Nunca enviar se contiver', fontes: 'Fontes RSS',
   fontes_gerais_so_nicho: 'Fontes gerais: só assuntos do nicho', palavras_nicho: 'Termos do nicho',
   so_nao_lidos: 'Só e-mails não lidos', remetentes: 'Remetentes importantes', palavras: 'Palavras importantes',
-  antecedencia_min: 'Avisar antes do compromisso', ativa: 'Ativa', nome: 'Nome', url: 'Endereço do feed', tema: 'Tema',
+  antecedencia_min: 'Avisar antes do compromisso', so_caixa_principal: 'Só a caixa Principal', calendarios: 'Agendas',
+  motor: 'Motor', modelo: 'Modelo do Ollama', url_ollama: 'Endereço do Ollama', ativa: 'Ativa', nome: 'Nome', url: 'Endereço do feed', tema: 'Tema',
 };
 const DICAS = {
   inicio: 'Nada é enviado entre o início e o fim.', fim: 'O que chegou durante o silêncio sai neste horário, junto.',
@@ -454,6 +482,11 @@ const DICAS = {
   palavras_nicho: 'Uma por linha. Usados só nas fontes de tema "Tecnologia"; as especializadas (IA, segurança, programação) passam direto.',
   remetentes: 'Um por linha (e-mail ou parte dele, ex.: @banco.com.br).',
   antecedencia_min: 'Em minutos, separados por vírgula. Ex.: 60, 10',
+  so_caixa_principal: 'Ignora as abas Promoções, Social e Atualizações do Gmail.',
+  palavras: 'Uma por linha, no assunto ou no começo do e-mail. Sem remetentes nem palavras, todo e-mail novo é avisado.',
+  calendarios: 'Um id por linha (em Configurações da agenda → Integrar agenda). Vazio = sua agenda principal.',
+  motor: '"ollama" para usar a IA local; qualquer outro valor manda só o resumo simples.',
+  modelo: 'Nome de um modelo instalado (ollama list). Vazio = o primeiro instalado.',
 };
 const DESC_SECAO = {
   silencio: 'Período em que o assistente não envia nada.',
@@ -500,7 +533,7 @@ async function telaConfig(raiz) {
 
   function campo(caminho, chave, valor) {
     const id = `c-${caminho.join('-')}`;
-    const cab = el('div', {}, el('label', { class: 'rot', for: id }, rotulo(chave)), DICAS[chave] ? el('small', {}, DICAS[chave]) : null);
+    const cab = el('div', {}, el('label', { class: 'rot', for: id }, rotulo(caminho[0] === 'resumo' && chave === 'url' ? 'url_ollama' : chave)), DICAS[chave] ? el('small', {}, DICAS[chave]) : null);
     let entrada;
     if (typeof valor === 'boolean') {
       entrada = el('label', { class: 'chave' }, el('input', { id, type: 'checkbox', checked: valor, onchange: (e) => definir(caminho, e.target.checked) }), el('span'));

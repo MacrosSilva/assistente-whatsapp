@@ -2,7 +2,8 @@
   "modulos_ativos": {
     "noticias": true,
     "email": true,
-    "agenda": true
+    "agenda": true,
+    "resumo": true
   },
   "silencio": {
     "inicio": "23:00",
@@ -326,17 +327,19 @@
     "intervalo_min": 5,
     "so_nao_lidos": true,
     "remetentes": [],
-    "palavras": []
+    "palavras": [],
+    "so_caixa_principal": true
   },
   "agenda": {
     "antecedencia_min": [
       60,
       10
-    ]
+    ],
+    "calendarios": []
   },
   "resumo": {
     "motor": "ollama",
-    "modelo": "",
+    "modelo": "gemma3:4b",
     "url": "http://127.0.0.1:11434"
   }
 }
